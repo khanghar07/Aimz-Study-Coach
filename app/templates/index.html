@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Aimz</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Crimson+Pro:wght@500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-wave"></div>
+  <div id="loading" class="loading hidden">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-text">Aimz is thinking...</div>
+      <div class="loading-sub">Analyzing files and building your plan.</div>
+    </div>
+  </div>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <h1>Aimz</h1>
+          <p class="sub">Upload notes, PDFs, whiteboard photos, or code files and get a structured study plan.</p>
+        </div>
+      </div>
+      <div class="badges">
+        <span class="badge">Multimodal</span>
+        <span class="badge">Flashcards</span>
+        <span class="badge">Quiz</span>
+        <span class="badge code">Code-aware</span>
+        <span class="badge">Ask Aimz</span>
+      </div>
+    </header>
+
+    <section class="card accent">
+      <form id="analyzeForm">
+        <label>Goal</label>
+        <input name="goal" type="text" value="Help me study this for an upcoming test." />
+
+        <div class="grid">
+          <div>
+            <label>Level</label>
+            <input name="level" type="text" value="Undergraduate" />
+          </div>
+          <div>
+            <label>Time Budget</label>
+            <input name="time_budget" type="text" value="30 minutes" />
+          </div>
+        </div>
+
+        <label>Upload Files (PDFs, images, code, docs)</label>
+        <input id="filesInput" name="files" type="file" multiple />
+        <div class="hint">Supports: PDF, PNG/JPG/WebP, DOCX, PPTX, XLSX, TXT, PY, CPP, CSS, ASM and more.</div>
+        <div id="previews" class="previews"></div>
+
+        <button type="submit">Analyze</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Results</h2>
+      <div class="actions">
+        <button id="exportJsonBtn" type="button" disabled>Export JSON</button>
+        <button id="exportMdBtn" type="button" disabled>Export Markdown</button>
+        <button id="exportPdfBtn" type="button" disabled>Export PDF</button>
+        <button id="shareBtn" type="button" disabled>Share Link</button>
+      </div>
+      <div id="results" class="results">
+        <pre id="output">Waiting for input...</pre>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Ask Aimz</h2>
+      <div class="ask">
+        <textarea id="askInput" placeholder="Ask a question about the content or code..."></textarea>
+        <button id="askBtn" type="button" disabled>Ask</button>
+      </div>
+      <div id="askOutput" class="ask-output">No questions yet.</div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const form = document.getElementById("analyzeForm");
+    const output = document.getElementById("output");
+    const results = document.getElementById("results");
+    const exportJsonBtn = document.getElementById("exportJsonBtn");
+    const exportMdBtn = document.getElementById("exportMdBtn");
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const filesInput = document.getElementById("filesInput");
+    const previews = document.getElementById("previews");
+    const loading = document.getElementById("loading");
+    let lastJson = null;
+
+    filesInput.addEventListener("change", () => {
+      previews.innerHTML = "";
+      const files = Array.from(filesInput.files || []);
+      files.forEach(file => {
+        const item = document.createElement("div");
+        item.className = "preview";
+
+        if (file.type.startsWith("image/")) {
+          const img = document.createElement("img");
+          img.alt = file.name;
+          img.src = URL.createObjectURL(file);
+          item.appendChild(img);
+        } else if (file.name.toLowerCase().endsWith(".pdf")) {
+          const pdf = document.createElement("div");
+          pdf.className = "pdf";
+          pdf.textContent = `PDF: ${file.name}`;
+          item.appendChild(pdf);
+        } else {
+          const other = document.createElement("div");
+          other.className = "pdf";
+          other.textContent = file.name;
+          item.appendChild(other);
+        }
+
+        previews.appendChild(item);
+      });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      output.textContent = "Analyzing...";
+      results.innerHTML = "";
+      exportJsonBtn.disabled = true;
+      exportMdBtn.disabled = true;
+      exportPdfBtn.disabled = true;
+      shareBtn.disabled = true;
+      askBtn.disabled = true;
+      loading.classList.remove("hidden");
+
+      const data = new FormData(form);
+      const res = await fetch("/analyze", { method: "POST", body: data });
+      const json = await res.json();
+      lastJson = json;
+
+      if (json.error) {
+        output.textContent = JSON.stringify(json, null, 2);
+        results.appendChild(output);
+        loading.classList.add("hidden");
+        return;
+      }
+
+      exportJsonBtn.disabled = false;
+      exportMdBtn.disabled = false;
+      exportPdfBtn.disabled = false;
+      shareBtn.disabled = false;
+      output.textContent = JSON.stringify(json, null, 2);
+      results.appendChild(renderResults(json));
+      document.getElementById("askBtn").disabled = false;
+      loading.classList.add("hidden");
+    });
+
+    exportJsonBtn.addEventListener("click", () => {
+      if (!lastJson) return;
+      const blob = new Blob([JSON.stringify(lastJson, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "study-coach-output.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    exportMdBtn.addEventListener("click", () => {
+      if (!lastJson) return;
+      exportMarkdown(lastJson);
+    });
+
+    exportPdfBtn.addEventListener("click", () => {
+      if (!lastJson) return;
+      exportPdf(lastJson);
+    });
+
+    shareBtn.addEventListener("click", async () => {
+      if (!lastJson) return;
+      const res = await shareReport(lastJson);
+      if (res.url) {
+        navigator.clipboard.writeText(res.url).catch(() => {});
+        alert("Share link (copied): " + res.url);
+      }
+    });
+
+    const askInput = document.getElementById("askInput");
+    const askBtn = document.getElementById("askBtn");
+    const askOutput = document.getElementById("askOutput");
+
+    askBtn.addEventListener("click", async () => {
+      if (!lastJson) return;
+      const q = (askInput.value || "").trim();
+      if (!q) return;
+      askOutput.textContent = "Thinking...";
+      loading.classList.remove("hidden");
+
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, analysis: lastJson })
+      });
+      const json = await res.json();
+      if (json.error) {
+        askOutput.textContent = JSON.stringify(json, null, 2);
+        loading.classList.add("hidden");
+        return;
+      }
+      askOutput.innerHTML = `
+        <div class="ask-answer">${json.answer || ""}</div>
+        <ul>${(json.bullets || []).map(b => `<li>${b}</li>`).join("")}</ul>
+        <div class="ask-next"><strong>Next steps:</strong></div>
+        <ul>${(json.next_steps || []).map(b => `<li>${b}</li>`).join("")}</ul>
+      `;
+      loading.classList.add("hidden");
+    });
+  </script>
+</body>
+</html>

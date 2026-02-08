@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+requests
+PyPDF2
+python-dotenv
+fpdf
+python-docx
+python-pptx
+openpyxl

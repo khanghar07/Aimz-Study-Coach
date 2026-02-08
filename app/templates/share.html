@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Aimz - Shared Study Report</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Shared Study Report</h1>
+      <p class="sub">Share ID: {{ sid }}</p>
+    </header>
+
+    <section class="card">
+      <h2>Results</h2>
+      <div id="results" class="results"></div>
+      <pre id="output" style="display:none;"></pre>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    const data = {{ data | tojson }};
+    const results = document.getElementById("results");
+    if (!data) {
+      results.textContent = "This share link is expired or invalid.";
+    } else {
+      results.appendChild(renderResults(data));
+    }
+  </script>
+</body>
+</html>
