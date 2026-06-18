@@ -5,8 +5,7 @@ from typing import Dict, Any, List
 
 
 def _model_name():
-    # Default to a Gemini 3 model to align with hackathon requirements.
-    return os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+    return os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 def _extract_json(text: str):
